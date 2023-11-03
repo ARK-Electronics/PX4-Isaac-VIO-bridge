@@ -28,7 +28,7 @@ private:
 
 void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg) 
 {
-	px4_msgs::msg::VehicleOdometry vio = {};
+	px4_msgs::msg::VehicleOdometry vio;
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
@@ -47,32 +47,30 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	q.setZ(msg->pose.pose.orientation.z);
 	q.setW(msg->pose.pose.orientation.w);
 
-	// Perform rotation
+	// Perform rotation from ROS2 to PX4 frame convention
 	// https://docs.px4.io/main/en/ros/ros2_comm.html#ros-2-px4-frame-conventions
-	auto rotation_matrix = tf2::Matrix3x3(
-								1, 0, 0,
-								0, -1, 0,
-								0, 0, -1);
+	auto rotation = tf2::Matrix3x3(
+						 1, 0, 0,
+						 0, -1, 0,
+						 0, 0, -1);
 
-	auto position = rotation_matrix * p;
-
-	// The quaternion frame transformation is a bit more complicated
-	tf2::Transform tf;
-	tf.setRotation(q);
-	tf.setBasis(rotation_matrix * tf.getBasis());
-
-	// Get the resulting quaternion after the transformation
-	tf2::Quaternion orientation;
-	tf.getBasis().getRotation(orientation);
+	auto position = rotation * p;
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	vio.q[0] = orientation[0];
-	vio.q[1] = orientation[1];
-	vio.q[2] = orientation[2];
-	vio.q[3] = orientation[3];
+	tf2::Transform tf;
+	tf.setRotation(q);
+	tf.setBasis(rotation * tf.getBasis());
+
+	tf2::Quaternion q_rot;
+	tf.getBasis().getRotation(q_rot);
+
+	vio.q[0] = q_rot[0];
+	vio.q[1] = q_rot[1];
+	vio.q[2] = q_rot[2];
+	vio.q[3] = q_rot[3];
 
 	vio.velocity_frame = vio.VELOCITY_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
 
