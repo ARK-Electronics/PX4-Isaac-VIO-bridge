@@ -60,12 +60,13 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	tf2::Transform tf;
-	tf.setRotation(q);
-	tf.setBasis(rotation * tf.getBasis());
+	auto q_rot = tf2::Quaternion(0, 0, 0, 1);
 
-	tf2::Quaternion q_rot;
+	tf2::Transform tf;
+	tf.setRotation(q_rot);
+	tf.setBasis(rotation * tf.getBasis());
 	tf.getBasis().getRotation(q_rot);
+	q_rot = q * q_rot;
 
 	vio.q[0] = q_rot[0];
 	vio.q[1] = q_rot[1];
