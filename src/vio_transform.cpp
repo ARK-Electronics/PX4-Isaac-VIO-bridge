@@ -60,18 +60,18 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	auto q_rot = tf2::Quaternion(0, 0, 0, 1);
+	// Transform the quaternion using the rotation matrix
+	tf2::Matrix3x3 q_matrix(q);
+	tf2::Matrix3x3 result_matrix = rotation * q_matrix;
 
-	tf2::Transform tf;
-	tf.setRotation(q_rot);
-	tf.setBasis(rotation * tf.getBasis());
-	tf.getBasis().getRotation(q_rot);
-	q_rot = q * q_rot;
+	// Convert the resulting matrix back to a quaternion
+	tf2::Quaternion result_quaternion;
+	result_matrix.getRotation(result_quaternion);
 
-	vio.q[0] = q_rot[0];
-	vio.q[1] = q_rot[1];
-	vio.q[2] = q_rot[2];
-	vio.q[3] = q_rot[3];
+	vio.q[0] = result_quaternion[0];
+	vio.q[1] = result_quaternion[1];
+	vio.q[2] = result_quaternion[2];
+	vio.q[3] = result_quaternion[3];
 
 	vio.velocity_frame = vio.VELOCITY_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
 
