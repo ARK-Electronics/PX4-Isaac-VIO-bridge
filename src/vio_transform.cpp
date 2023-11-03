@@ -3,7 +3,6 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Transform.h"
-#include <tf2/convert.h>
 
 class VioTransform : public rclcpp::Node
 {
@@ -29,7 +28,7 @@ private:
 
 void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg) 
 {
-	px4_msgs::msg::VehicleOdometry vio;
+	px4_msgs::msg::VehicleOdometry vio = {};
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
@@ -58,13 +57,13 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	auto position = rotation_matrix * p;
 
 	// The quaternion frame transformation is a bit more complicated
-	tf2::Transform transform;
-	transform.setRotation(q);
-	transform.setBasis(rotation_matrix * transform.getBasis());
+	tf2::Transform tf;
+	tf.setRotation(q);
+	tf.setBasis(rotation_matrix * tf.getBasis());
 
 	// Get the resulting quaternion after the transformation
 	tf2::Quaternion orientation;
-	transform.getBasis().getRotation(orientation);
+	tf.getBasis().getRotation(orientation);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
@@ -97,7 +96,7 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.velocity_variance[1] = msg->twist.covariance[7];
 	vio.velocity_variance[2] = msg->twist.covariance[14];
 
-	vio.reset_counter = 0; // we can't detect it... TODO: look into issac_ros_vslam code to see if we can expose it
+	vio.reset_counter = 0; // TODO: look into issac_ros_vslam code to see if we can expose it
 	vio.quality = 0; // 0 = unknown/unset quality
 
 	_vio_pub->publish(vio);
