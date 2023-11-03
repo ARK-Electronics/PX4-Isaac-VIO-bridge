@@ -36,12 +36,12 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.pose_frame = vio.POSE_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
 
 	// Create vectors for position and orientation so we can rotate them into the correct frame 
-	auto p = tf2::Vector3();
+	tf2::Vector3 p;
 	p.setX(msg->pose.pose.position.x);
 	p.setY(msg->pose.pose.position.y);
 	p.setZ(msg->pose.pose.position.z);
 
-	auto q = tf2::Quaternion();
+	tf2::Quaternion q;
 	q.setX(msg->pose.pose.orientation.x);
 	q.setY(msg->pose.pose.orientation.y);
 	q.setZ(msg->pose.pose.orientation.z);
@@ -60,18 +60,15 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	// Transform the quaternion using the rotation matrix
-	tf2::Matrix3x3 q_matrix(q);
-	tf2::Matrix3x3 result_matrix = rotation * q_matrix;
-
-	// Convert the resulting matrix back to a quaternion
-	tf2::Quaternion result_quaternion;
-	result_matrix.getRotation(result_quaternion);
-
-	vio.q[0] = result_quaternion[0];
-	vio.q[1] = result_quaternion[1];
-	vio.q[2] = result_quaternion[2];
-	vio.q[3] = result_quaternion[3];
+	// To apply the rotation of one quaternion to a pose, simply multiply the previous quaternion 
+	// of the pose by the quaternion representing the desired rotation. The order of this multiplication matters.
+	tf2::Quaternion rotation_quat;
+	rotation.getRotation(rotation_quat);
+	q = q * rotation_quat;
+	vio.q[0] = q[0];
+	vio.q[1] = q[1];
+	vio.q[2] = q[2];
+	vio.q[3] = q[3];
 
 	vio.velocity_frame = vio.VELOCITY_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
 
