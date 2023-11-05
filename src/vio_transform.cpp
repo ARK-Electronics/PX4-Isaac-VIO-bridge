@@ -47,30 +47,29 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	q.setZ(msg->pose.pose.orientation.z);
 	q.setW(msg->pose.pose.orientation.w);
 
-	// Perform rotation from ROS2 to PX4 frame convention
-	// https://docs.px4.io/main/en/ros/ros2_comm.html#ros-2-px4-frame-conventions
-	auto rotation = tf2::Matrix3x3(
-						 1, 0, 0,
-						 0, -1, 0,
-						 0, 0, -1);
 
-	auto position = rotation * p;
+	// ROS --> PX4
 
-	vio.position[0] = position[0];
-	vio.position[1] = position[1];
-	vio.position[2] = position[2];
+	tf2::Quaternion enu_ned_q;;
+	enu_ned_q.setRPY(M_PI, 0.0, M_PI_2);
+	// tf2::Quaternion flu_frd_q;;
+	// flu_frd_q.setRPY(M_PI, 0.0, 0.0);
 
-	// To apply the rotation of one quaternion to a pose, simply multiply the previous quaternion 
-	// of the pose by the quaternion representing the desired rotation. The order of this multiplication matters.
-	tf2::Quaternion rotation_quat;
-	rotation.getRotation(rotation_quat);
-	q = q * rotation_quat;
+	// TODO: camera is mounted upside down, param to specify orientation?
+	// q = enu_ned_q * q * flu_frd_q;
+	q = enu_ned_q * q; // camera is mounted upside down so we're in FRD already
+	p = tf2::quatRotate(enu_ned_q, p);
+
+	vio.position[0] = p[0];
+	vio.position[1] = p[1];
+	vio.position[2] = p[2];
+
 	vio.q[0] = q[0];
 	vio.q[1] = q[1];
 	vio.q[2] = q[2];
 	vio.q[3] = q[3];
 
-	vio.velocity_frame = vio.VELOCITY_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
+	vio.velocity_frame = vio.VELOCITY_FRAME_FRD;
 
 	vio.velocity[0] = msg->twist.twist.linear.x;
 	vio.velocity[1] = msg->twist.twist.linear.y;
