@@ -26,43 +26,33 @@ private:
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_sub;
 };
 
-void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg) 
+void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 {
 	px4_msgs::msg::VehicleOdometry vio;
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
 
-	vio.pose_frame = vio.POSE_FRAME_FRD; // FRD world-fixed frame, arbitrary heading reference
+	// FRD local tangent frame (x: Forward, y: Right, z: Down) with origin fixed relative to earth.
+	vio.pose_frame = vio.POSE_FRAME_FRD; // same as MAV_FRAME_LOCAL_FRD
 
-	// Create vectors for position and orientation so we can rotate them into the correct frame 
-	tf2::Vector3 p;
-	p.setX(msg->pose.pose.position.x);
-	p.setY(msg->pose.pose.position.y);
-	p.setZ(msg->pose.pose.position.z);
+	// Position is some fucked up coordinate system
+	tf2::Vector3 position;
+	position.setX(-msg->pose.pose.position.y);
+	position.setY(msg->pose.pose.position.x);
+	position.setZ(msg->pose.pose.position.z);
 
+	// The realsense VSLAM output is left handed.
+	// We convert RealSense frame (DLB) to PX4 frame (FRD) by:
 	tf2::Quaternion q;
-	q.setX(msg->pose.pose.orientation.x);
-	q.setY(msg->pose.pose.orientation.y);
-	q.setZ(msg->pose.pose.orientation.z);
+	q.setX(-msg->pose.pose.orientation.z);
+	q.setY(-msg->pose.pose.orientation.y);
+	q.setZ(msg->pose.pose.orientation.x);
 	q.setW(msg->pose.pose.orientation.w);
 
-
-	// ROS --> PX4
-
-	tf2::Quaternion enu_ned_q;;
-	enu_ned_q.setRPY(M_PI, 0.0, M_PI_2);
-	// tf2::Quaternion flu_frd_q;;
-	// flu_frd_q.setRPY(M_PI, 0.0, 0.0);
-
-	// TODO: camera is mounted upside down, param to specify orientation?
-	// q = enu_ned_q * q * flu_frd_q;
-	q = enu_ned_q * q; // camera is mounted upside down so we're in FRD already
-	p = tf2::quatRotate(enu_ned_q, p);
-
-	vio.position[0] = p[0];
-	vio.position[1] = p[1];
-	vio.position[2] = p[2];
+	vio.position[0] = position[0];
+	vio.position[1] = position[1];
+	vio.position[2] = position[2];
 
 	vio.q[0] = q[0];
 	vio.q[1] = q[1];
@@ -82,7 +72,7 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	vio.position_variance[0] = msg->pose.covariance[0];
 	vio.position_variance[1] = msg->pose.covariance[7];
 	vio.position_variance[2] = msg->pose.covariance[14];
-	
+
 	vio.orientation_variance[0] = msg->pose.covariance[21];
 	vio.orientation_variance[1] = msg->pose.covariance[28];
 	vio.orientation_variance[2] = msg->pose.covariance[35];
