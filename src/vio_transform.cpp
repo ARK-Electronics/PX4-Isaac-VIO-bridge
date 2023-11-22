@@ -55,23 +55,15 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	// FRD local tangent frame (x: Forward, y: Right, z: Down) with origin fixed relative to earth.
 	vio.pose_frame = vio.POSE_FRAME_FRD; // same as MAV_FRAME_LOCAL_FRD
 
-
-	// It's a yaw -90
-	// TODO: replace with a quat rotation and try to understand why it's like this
-	// Position is some fucked up coordinate system
 	tf2::Vector3 position;
-	position.setX(-msg->pose.pose.position.y);
-	position.setY(msg->pose.pose.position.x);
+	position.setX(msg->pose.pose.position.x);
+	position.setY(msg->pose.pose.position.y);
 	position.setZ(msg->pose.pose.position.z);
 
-	// It's a roll 90 yaw 180
-	// TODO: replace with a quat rotation and try to understand why it's like this
-	// The realsense VSLAM output is left handed.
-	// We convert RealSense frame (DLB) to PX4 frame (FRD) by:
 	tf2::Quaternion q;
-	q.setX(-msg->pose.pose.orientation.z);
-	q.setY(-msg->pose.pose.orientation.y);
-	q.setZ(msg->pose.pose.orientation.x);
+	q.setX(msg->pose.pose.orientation.x);
+	q.setY(msg->pose.pose.orientation.y);
+	q.setZ(msg->pose.pose.orientation.z);
 	q.setW(msg->pose.pose.orientation.w);
 
 	vio.position[0] = position[0];
