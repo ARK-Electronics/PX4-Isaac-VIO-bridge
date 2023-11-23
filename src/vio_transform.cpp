@@ -26,6 +26,8 @@ explicit VioTransform() : Node("vio_transform")
 private:
 	void publish(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
+	void ENU_to_FRD_position(tf2::Vector3& position);
+	void ENU_to_FRD_orientation(tf2::Quaternion& quat);
 
 	rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr _vio_pub;
 
@@ -45,6 +47,26 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 	_vslam_state = msg->vo_state;
 }
 
+void VioTransform::ENU_to_FRD_position(tf2::Vector3& position)
+{
+	static const tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
+	position = NED_ENU_Q * position;
+}
+
+void VioTransform::ENU_to_FRD_orientation(tf2::Quaternion& quat)
+{
+	static const tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
+	static const auto AIRCRAFT_BASELINK_Q; //  = utils::quaternion::quaternion_from_euler(M_PI, 0.0, 0.0);
+	AIRCRAFT_BASELINK_Q.setRPY(M_PI, 0.0, 0.0);
+
+	// rotate quaterion from ENU into NED
+	quat = NED_ENU_Q * quat;
+	// rotation FRD into NED frame
+	quat = quat * AIRCRAFT_BASELINK_Q;
+}
+
 void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 {
 	px4_msgs::msg::VehicleOdometry vio;
@@ -60,20 +82,23 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	position.setY(msg->pose.pose.position.y);
 	position.setZ(msg->pose.pose.position.z);
 
-	tf2::Quaternion q;
-	q.setX(msg->pose.pose.orientation.x);
-	q.setY(msg->pose.pose.orientation.y);
-	q.setZ(msg->pose.pose.orientation.z);
-	q.setW(msg->pose.pose.orientation.w);
+	tf2::Quaternion quat;
+	quat.setX(msg->pose.pose.orientation.x);
+	quat.setY(msg->pose.pose.orientation.y);
+	quat.setZ(msg->pose.pose.orientation.z);
+	quat.setW(msg->pose.pose.orientation.w);
+
+	ENU_to_FRD_position(position);
+	ENU_to_FRD_orientation(quat);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	vio.q[0] = q[0];
-	vio.q[1] = q[1];
-	vio.q[2] = q[2];
-	vio.q[3] = q[3];
+	vio.q[0] = quat[0];
+	vio.q[1] = quat[1];
+	vio.q[2] = quat[2];
+	vio.q[3] = quat[3];
 
 	// TODO: still need to transform the covariances etc...
 
