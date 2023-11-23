@@ -56,19 +56,11 @@ void VioTransform::NWU_to_NED_position(tf2::Vector3& position)
 
 void VioTransform::NWU_to_NED_orientation(tf2::Quaternion& quat)
 {
-	tf2::Quaternion q = quat;
+	tf2::Quaternion NED_NWU_Q;
+	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
 
-	quat.setX(q.getZ());
-	quat.setY(q.getY());
-	quat.setZ(q.getX());
-
-	// tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	// NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
-
-	// // rotate quaterion from NWU into NED
-	// // quat = NED_NWU_Q * quat * NED_NWU_Q.inverse();
-	// quat = quat * NED_NWU_Q * quat.inverse();
-	// quat.normalize();
+	// rotate quaterion from NWU into NED
+	quat = NED_NWU_Q * quat * NED_NWU_Q.inverse();
 }
 
 void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
@@ -86,22 +78,22 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	position.setZ(msg->pose.pose.position.z);
 
 	tf2::Quaternion quat;
+	quat.setW(msg->pose.pose.orientation.w);
 	quat.setX(msg->pose.pose.orientation.x);
 	quat.setY(msg->pose.pose.orientation.y);
 	quat.setZ(msg->pose.pose.orientation.z);
-	quat.setW(msg->pose.pose.orientation.w);
 
 	NWU_to_NED_position(position);
-	// NWU_to_NED_orientation(quat);
+	NWU_to_NED_orientation(quat);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
 	vio.position[2] = position[2];
 
-	vio.q[0] = quat[0];
-	vio.q[1] = quat[1];
-	vio.q[2] = quat[2];
-	vio.q[3] = quat[3];
+	vio.q[0] = quat.getW();
+	vio.q[1] = quat.getX();
+	vio.q[2] = quat.getY();
+	vio.q[3] = quat.getZ();
 
 	// TODO: still need to transform the covariances etc...
 
