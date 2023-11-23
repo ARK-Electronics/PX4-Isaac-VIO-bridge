@@ -26,8 +26,8 @@ explicit VioTransform() : Node("vio_transform")
 private:
 	void publish(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
-	void ENU_to_FRD_position(tf2::Vector3& position);
-	void ENU_to_FRD_orientation(tf2::Quaternion& quat);
+	void NWU_to_FRD_position(tf2::Vector3& position);
+	void NWU_to_FRD_orientation(tf2::Quaternion& quat);
 
 	rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr _vio_pub;
 
@@ -47,23 +47,23 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 	_vslam_state = msg->vo_state;
 }
 
-void VioTransform::ENU_to_FRD_position(tf2::Vector3& position)
+void VioTransform::NWU_to_FRD_position(tf2::Vector3& position)
 {
-	tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
-	position = tf2::quatRotate(NED_ENU_Q, position);
+	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	NED_NWU_Q.setRPY(0.0, 0.0, M_PI_2);
+	position = tf2::quatRotate(NED_NWU_Q, position);
 }
 
-void VioTransform::ENU_to_FRD_orientation(tf2::Quaternion& quat)
+void VioTransform::NWU_to_FRD_orientation(tf2::Quaternion& quat)
 {
-	tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
+	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	NED_NWU_Q.setRPY(0.0, 0.0, M_PI_2);
 	tf2::Quaternion AIRCRAFT_BASELINK_Q; //  = utils::quaternion::quaternion_from_euler(M_PI, 0.0, 0.0);
-	AIRCRAFT_BASELINK_Q.setRPY(M_PI, 0.0, 0.0);
+	AIRCRAFT_BASELINK_Q.setRPY(M_PI, 0.0, 0.0); // FLU to FRD
 
-	// rotate quaterion from ENU into NED
-	quat = NED_ENU_Q * quat;
-	// rotation FRD into NED frame
+	// rotate quaterion from NWU into NED
+	quat = NED_NWU_Q * quat;
+	// rotation FLU-->FRD into NED frame
 	quat = quat * AIRCRAFT_BASELINK_Q;
 }
 
@@ -88,8 +88,8 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	quat.setZ(msg->pose.pose.orientation.z);
 	quat.setW(msg->pose.pose.orientation.w);
 
-	// ENU_to_FRD_position(position);
-	// ENU_to_FRD_orientation(quat);
+	NWU_to_FRD_position(position);
+	NWU_to_FRD_orientation(quat);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
