@@ -56,11 +56,19 @@ void VioTransform::NWU_to_NED_position(tf2::Vector3& position)
 
 void VioTransform::NWU_to_NED_orientation(tf2::Quaternion& quat)
 {
-	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
+	tf2::Quaternion q = quat;
 
-	// rotate quaterion from NWU into NED
-	quat = NED_NWU_Q * quat;
+	quat.setX(q.getZ());
+	quat.setY(q.getY());
+	quat.setZ(q.getX());
+
+	// tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	// NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
+
+	// // rotate quaterion from NWU into NED
+	// // quat = NED_NWU_Q * quat * NED_NWU_Q.inverse();
+	// quat = quat * NED_NWU_Q * quat.inverse();
+	// quat.normalize();
 }
 
 void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
