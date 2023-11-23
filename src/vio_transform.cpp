@@ -92,7 +92,7 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	quat.setW(msg->pose.pose.orientation.w);
 
 	NWU_to_NED_position(position);
-	NWU_to_NED_orientation(quat);
+	// NWU_to_NED_orientation(quat);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
