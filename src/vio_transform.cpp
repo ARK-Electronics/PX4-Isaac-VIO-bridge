@@ -50,14 +50,14 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 void VioTransform::NWU_to_NED_position(tf2::Vector3& position)
 {
 	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	NED_NWU_Q.setRPY(0.0, 0.0, M_PI_2);
+	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
 	position = tf2::quatRotate(NED_NWU_Q, position);
 }
 
 void VioTransform::NWU_to_NED_orientation(tf2::Quaternion& quat)
 {
 	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
-	NED_NWU_Q.setRPY(0.0, 0.0, M_PI_2);
+	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
 
 	// rotate quaterion from NWU into NED
 	quat = NED_NWU_Q * quat;
