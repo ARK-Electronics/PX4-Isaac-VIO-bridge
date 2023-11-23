@@ -51,14 +51,14 @@ void VioTransform::ENU_to_FRD_position(tf2::Vector3& position)
 {
 	static const tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
 	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
-	position = NED_ENU_Q * position;
+	position = tf2::quatRotate(NED_ENU_Q, position);
 }
 
 void VioTransform::ENU_to_FRD_orientation(tf2::Quaternion& quat)
 {
 	static const tf2::Quaternion NED_ENU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
 	NED_ENU_Q.setRPY(M_PI, 0.0, M_PI_2);
-	static const auto AIRCRAFT_BASELINK_Q; //  = utils::quaternion::quaternion_from_euler(M_PI, 0.0, 0.0);
+	static const tf2::Quaternion AIRCRAFT_BASELINK_Q; //  = utils::quaternion::quaternion_from_euler(M_PI, 0.0, 0.0);
 	AIRCRAFT_BASELINK_Q.setRPY(M_PI, 0.0, 0.0);
 
 	// rotate quaterion from ENU into NED
