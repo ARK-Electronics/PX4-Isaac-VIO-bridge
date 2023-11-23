@@ -88,8 +88,8 @@ void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
 	quat.setZ(msg->pose.pose.orientation.z);
 	quat.setW(msg->pose.pose.orientation.w);
 
-	ENU_to_FRD_position(position);
-	ENU_to_FRD_orientation(quat);
+	// ENU_to_FRD_position(position);
+	// ENU_to_FRD_orientation(quat);
 
 	vio.position[0] = position[0];
 	vio.position[1] = position[1];
