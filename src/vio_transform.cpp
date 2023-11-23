@@ -17,15 +17,17 @@ explicit VioTransform() : Node("vio_transform")
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
 	_vslam_sub = this->create_subscription<nav_msgs::msg::Odometry>("/visual_slam/tracking/odometry", qos,
-		std::bind(&VioTransform::publish, this, std::placeholders::_1));
+		std::bind(&VioTransform::odometryCallback, this, std::placeholders::_1));
 
 	_vslam_status_sub = this->create_subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>("/visual_slam/status", qos,
 		std::bind(&VioTransform::statusCallback, this, std::placeholders::_1));
 }
 
 private:
-	void publish(const nav_msgs::msg::Odometry::UniquePtr msg);
+	void odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
+
+	// NOTE: isaac_ros_vslam w/ realsense publishes Odometry in FLU world frame AKA NWU (north west up)
 	void NWU_to_NED_position(tf2::Vector3& position);
 	void NWU_to_NED_orientation(tf2::Quaternion& quat);
 
@@ -33,7 +35,6 @@ private:
 
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_sub;
 	rclcpp::Subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>::SharedPtr _vslam_status_sub;
-
 
 	uint8_t _vslam_state = 0;
 };
@@ -49,8 +50,9 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 
 void VioTransform::NWU_to_NED_position(tf2::Vector3& position)
 {
-	tf2::Quaternion NED_NWU_Q; // = utils::quaternion::quaternion_from_euler(M_PI, 0.0, M_PI_2);
+	tf2::Quaternion NED_NWU_Q;
 	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
+	// rotate the position vector from NWU to NED
 	position = tf2::quatRotate(NED_NWU_Q, position);
 }
 
@@ -58,12 +60,11 @@ void VioTransform::NWU_to_NED_orientation(tf2::Quaternion& quat)
 {
 	tf2::Quaternion NED_NWU_Q;
 	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
-
 	// rotate quaterion from NWU into NED
 	quat = NED_NWU_Q * quat * NED_NWU_Q.inverse();
 }
 
-void VioTransform::publish(const nav_msgs::msg::Odometry::UniquePtr msg)
+void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg)
 {
 	px4_msgs::msg::VehicleOdometry vio;
 
