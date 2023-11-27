@@ -24,12 +24,14 @@ explicit VioTransform() : Node("vio_transform")
 }
 
 private:
+	// Subscription callbacks
 	void odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
 
-
+	// Publishers
 	rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr _vio_pub;
 
+	// Subscribers
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_odom_sub;
 	rclcpp::Subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>::SharedPtr _vslam_status_sub;
 
@@ -47,28 +49,25 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 
 void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg)
 {
-    tf2::Vector3 position(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
-    tf2::Quaternion quaternion(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
-    tf2::Vector3 velocity(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
-    tf2::Vector3 angular_velocity(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
-    tf2::Vector3 position_variance(msg->pose.covariance[0], msg->pose.covariance[7], msg->pose.covariance[14]);
-    tf2::Vector3 orientation_variance(msg->pose.covariance[21], msg->pose.covariance[28], msg->pose.covariance[35]);
-    tf2::Vector3 velocity_variance(msg->twist.covariance[0], msg->twist.covariance[7], msg->twist.covariance[14]);
+	tf2::Vector3 position(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
+	tf2::Quaternion quaternion(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+	tf2::Vector3 velocity(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
+	tf2::Vector3 angular_velocity(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
+	tf2::Vector3 position_variance(msg->pose.covariance[0], msg->pose.covariance[7], msg->pose.covariance[14]);
+	tf2::Vector3 orientation_variance(msg->pose.covariance[21], msg->pose.covariance[28], msg->pose.covariance[35]);
+	tf2::Vector3 velocity_variance(msg->twist.covariance[0], msg->twist.covariance[7], msg->twist.covariance[14]);
 
 	// NOTE: isaac_ros_vslam w/ realsense publishes Odometry in FLU world frame AKA NWU (north west up)
-    tf2::Transform transform;
-    tf2::Quaternion rotation;
+	tf2::Quaternion rotation;
 	rotation.setRPY(M_PI, 0.0, 0.0);
-    transform.setOrigin(tf2::Vector3(0.0, 0.0, 0.0));
-    transform.setRotation(rotation);
 
-	position = transform * position;
-	quaternion = transform * quaternion;
-	velocity = transform * velocity;
-	angular_velocity = transform * angular_velocity;
-	position_variance = transform * position_variance;
-	orientation_variance = transform * orientation_variance;
-	velocity_variance = transform * velocity_variance;
+	position = tf2::quatRotate(rotation, position);
+	quaternion = rotation * quaternion * rotation.inverse();
+	velocity = tf2::quatRotate(rotation, velocity);
+	angular_velocity = tf2::quatRotate(rotation, angular_velocity);
+	position_variance = tf2::quatRotate(rotation, position_variance);
+	orientation_variance = tf2::quatRotate(rotation, orientation_variance);
+	velocity_variance = tf2::quatRotate(rotation, position);
 
 	// Fill the message
 	px4_msgs::msg::VehicleOdometry vio;
