@@ -16,7 +16,7 @@ explicit VioTransform() : Node("vio_transform")
 	rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-	_vslam_sub = this->create_subscription<nav_msgs::msg::Odometry>("/visual_slam/tracking/odometry", qos,
+	_vslam_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>("/visual_slam/tracking/odometry", qos,
 		std::bind(&VioTransform::odometryCallback, this, std::placeholders::_1));
 
 	_vslam_status_sub = this->create_subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>("/visual_slam/status", qos,
@@ -27,13 +27,10 @@ private:
 	void odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
 
-	// NOTE: isaac_ros_vslam w/ realsense publishes Odometry in FLU world frame AKA NWU (north west up)
-	void NWU_to_NED_position(tf2::Vector3& position);
-	void NWU_to_NED_orientation(tf2::Quaternion& quat);
 
 	rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr _vio_pub;
 
-	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_sub;
+	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_odom_sub;
 	rclcpp::Subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>::SharedPtr _vslam_status_sub;
 
 	uint8_t _vslam_state = 0;
@@ -48,77 +45,67 @@ void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::V
 	_vslam_state = msg->vo_state;
 }
 
-void VioTransform::NWU_to_NED_position(tf2::Vector3& position)
-{
-	tf2::Quaternion NED_NWU_Q;
-	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
-	// rotate the position vector from NWU to NED
-	position = tf2::quatRotate(NED_NWU_Q, position);
-}
-
-void VioTransform::NWU_to_NED_orientation(tf2::Quaternion& quat)
-{
-	tf2::Quaternion NED_NWU_Q;
-	NED_NWU_Q.setRPY(M_PI, 0.0, 0.0);
-	// rotate quaterion from NWU into NED
-	quat = NED_NWU_Q * quat * NED_NWU_Q.inverse();
-}
-
 void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg)
 {
+    tf2::Vector3 position(msg->pose.pose.position.x, msg->pose.pose.position.y, msg->pose.pose.position.z);
+    tf2::Quaternion quaternion(msg->pose.pose.orientation.x, msg->pose.pose.orientation.y, msg->pose.pose.orientation.z, msg->pose.pose.orientation.w);
+    tf2::Vector3 velocity(msg->twist.twist.linear.x, msg->twist.twist.linear.y, msg->twist.twist.linear.z);
+    tf2::Vector3 angular_velocity(msg->twist.twist.angular.x, msg->twist.twist.angular.y, msg->twist.twist.angular.z);
+    tf2::Vector3 position_variance(msg->pose.covariance[0], msg->pose.covariance[7], msg->pose.covariance[14]);
+    tf2::Vector3 orientation_variance(msg->pose.covariance[21], msg->pose.covariance[28], msg->pose.covariance[35]);
+    tf2::Vector3 velocity_variance(msg->twist.covariance[0], msg->twist.covariance[7], msg->twist.covariance[14]);
+
+	// NOTE: isaac_ros_vslam w/ realsense publishes Odometry in FLU world frame AKA NWU (north west up)
+    tf2::Transform transform;
+    tf2::Quaternion rotation;
+	rotation.setRPY(M_PI, 0.0, 0.0);
+    transform.setOrigin(tf2::Vector3(0.0, 0.0, 0.0));
+    transform.setRotation(rotation);
+
+	position = transform * position;
+	quaternion = transform * quaternion;
+	velocity = transform * velocity;
+	angular_velocity = transform * angular_velocity;
+	position_variance = transform * position_variance;
+	orientation_variance = transform * orientation_variance;
+	velocity_variance = transform * velocity_variance;
+
+	// Fill the message
 	px4_msgs::msg::VehicleOdometry vio;
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
-
 	vio.pose_frame = vio.POSE_FRAME_NED;
-
-	tf2::Vector3 position;
-	position.setX(msg->pose.pose.position.x);
-	position.setY(msg->pose.pose.position.y);
-	position.setZ(msg->pose.pose.position.z);
-
-	tf2::Quaternion quat;
-	quat.setW(msg->pose.pose.orientation.w);
-	quat.setX(msg->pose.pose.orientation.x);
-	quat.setY(msg->pose.pose.orientation.y);
-	quat.setZ(msg->pose.pose.orientation.z);
-
-	NWU_to_NED_position(position);
-	NWU_to_NED_orientation(quat);
-
-	vio.position[0] = position[0];
-	vio.position[1] = position[1];
-	vio.position[2] = position[2];
-
-	vio.q[0] = quat.getW();
-	vio.q[1] = quat.getX();
-	vio.q[2] = quat.getY();
-	vio.q[3] = quat.getZ();
-
-	// TODO: still need to transform the covariances etc...
-
 	vio.velocity_frame = vio.VELOCITY_FRAME_NED;
 
-	vio.velocity[0] = msg->twist.twist.linear.x;
-	vio.velocity[1] = msg->twist.twist.linear.y;
-	vio.velocity[2] = msg->twist.twist.linear.z;
+	vio.position[0] = position.getX();
+	vio.position[1] = position.getY();
+	vio.position[2] = position.getZ();
 
-	vio.angular_velocity[0] = msg->twist.twist.angular.x;
-	vio.angular_velocity[1] = msg->twist.twist.angular.y;
-	vio.angular_velocity[2] = msg->twist.twist.angular.z;
+	vio.q[0] = quaternion.getW();
+	vio.q[1] = quaternion.getX();
+	vio.q[2] = quaternion.getY();
+	vio.q[3] = quaternion.getZ();
 
-	vio.position_variance[0] = msg->pose.covariance[0];
-	vio.position_variance[1] = msg->pose.covariance[7];
-	vio.position_variance[2] = msg->pose.covariance[14];
+	vio.velocity[0] = velocity.getX();
+	vio.velocity[1] = velocity.getY();
+	vio.velocity[2] = velocity.getZ();
 
-	vio.orientation_variance[0] = msg->pose.covariance[21];
-	vio.orientation_variance[1] = msg->pose.covariance[28];
-	vio.orientation_variance[2] = msg->pose.covariance[35];
+	vio.angular_velocity[0] = angular_velocity.getX();
+	vio.angular_velocity[1] = angular_velocity.getY();
+	vio.angular_velocity[2] = angular_velocity.getZ();
 
-	vio.velocity_variance[0] = msg->twist.covariance[0];
-	vio.velocity_variance[1] = msg->twist.covariance[7];
-	vio.velocity_variance[2] = msg->twist.covariance[14];
+	vio.position_variance[0] = position_variance.getX();
+	vio.position_variance[1] = position_variance.getY();
+	vio.position_variance[2] = position_variance.getZ();
+
+	vio.orientation_variance[0] = orientation_variance.getX();
+	vio.orientation_variance[1] = orientation_variance.getY();
+	vio.orientation_variance[2] = orientation_variance.getZ();
+
+	vio.velocity_variance[0] = velocity_variance.getX();
+	vio.velocity_variance[1] = velocity_variance.getY();
+	vio.velocity_variance[2] = velocity_variance.getZ();
 
 	vio.reset_counter = 0; // TODO: look into issac_ros_vslam code to see if we can expose it
 	vio.quality = _vslam_state; // 0 = unknown/unset quality
