@@ -67,7 +67,7 @@ void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg
 	angular_velocity = tf2::quatRotate(rotation, angular_velocity);
 	position_variance = tf2::quatRotate(rotation, position_variance);
 	orientation_variance = tf2::quatRotate(rotation, orientation_variance);
-	velocity_variance = tf2::quatRotate(rotation, position);
+	velocity_variance = tf2::quatRotate(rotation, velocity_variance);
 
 	// Fill the message
 	px4_msgs::msg::VehicleOdometry vio;
