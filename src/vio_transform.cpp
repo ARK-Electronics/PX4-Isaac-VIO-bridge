@@ -74,8 +74,8 @@ void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
-	vio.pose_frame = vio.POSE_FRAME_NED;
-	vio.velocity_frame = vio.VELOCITY_FRAME_NED;
+	vio.pose_frame = vio.POSE_FRAME_FRD;
+	vio.velocity_frame = vio.VELOCITY_FRAME_FRD;
 
 	vio.position[0] = position.getX();
 	vio.position[1] = position.getY();
