@@ -17,10 +17,10 @@ explicit VioTransform() : Node("vio_transform")
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
 	_vslam_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>("/visual_slam/tracking/odometry", qos,
-		std::bind(&VioTransform::odometryCallback, this, std::placeholders::_1));
+						std::bind(&VioTransform::odometryCallback, this, std::placeholders::_1));
 
 	_vslam_status_sub = this->create_subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>("/visual_slam/status", qos,
-		std::bind(&VioTransform::statusCallback, this, std::placeholders::_1));
+						std::bind(&VioTransform::statusCallback, this, std::placeholders::_1));
 }
 
 private:
@@ -74,18 +74,20 @@ void VioTransform::odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg
 
 	vio.timestamp = msg->header.stamp.sec * 1000000 + msg->header.stamp.nanosec / 1000;
 	vio.timestamp_sample = vio.timestamp;
-	vio.pose_frame = vio.POSE_FRAME_FRD;
-	vio.velocity_frame = vio.VELOCITY_FRAME_BODY_FRD;
 
-	vio.position[0] = position.getX();
-	vio.position[1] = position.getY();
-	vio.position[2] = position.getZ();
+	vio.pose_frame = vio.POSE_FRAME_FRD;
 
 	vio.q[0] = quaternion.getW();
 	vio.q[1] = quaternion.getX();
 	vio.q[2] = quaternion.getY();
 	vio.q[3] = quaternion.getZ();
 
+	vio.position[0] = position.getX();
+	vio.position[1] = position.getY();
+	vio.position[2] = position.getZ();
+
+	// NOTE: body frame velocities
+	vio.velocity_frame = vio.VELOCITY_FRAME_BODY_FRD;
 	vio.velocity[0] = velocity.getX();
 	vio.velocity[1] = velocity.getY();
 	vio.velocity[2] = velocity.getZ();
