@@ -42,11 +42,20 @@ def generate_launch_description():
         }]
     )
 
+    # Converts PX4 IMU topic to VIO IMU input
     imu_transform_node = Node(
         name='imu_transform',
         namespace='imu_transform',
         package='imu_transform',
         executable='imu_transform'
+    )
+
+    # Converts VIO solution to PX4 topic
+    vio_transform_node = Node(
+        name='vio_transform',
+        namespace='vio_transform',
+        package='px4_vslam',
+        executable='vio_transform'
     )
 
     visual_slam_node = ComposableNode(
@@ -80,6 +89,34 @@ def generate_launch_description():
                     ('visual_slam/imu', 'imu_transform/imu')]
     )
 
+
+    # Foxglove
+    foxglove_bridge_node = Node(
+        name='foxglove_bridge',
+        namespace='foxglove_bridge',
+        package='foxglove_bridge',
+        executable='foxglove_bridge',
+        parameters=[{
+                    'port': 8765,
+                    'address': '0.0.0.0',
+                    'tls': False,
+                    'certfile': '',
+                    'keyfile': '',
+                    'topic_whitelist': ['.*'],
+                    'service_whitelist': ['.*'],
+                    'param_whitelist': ['.*'],
+                    'client_topic_whitelist': ['.*'],
+                    'min_qos_depth': 1,
+                    'max_qos_depth': 10,
+                    'num_threads': 0,
+                    'send_buffer_limit': 10000000,
+                    'use_sim_time': False,
+                    'capabilities': ['clientPublish','parameters','parametersSubscribe','services','connectionGraph','assets'],
+                    'include_hidden': False,
+                    'asset_uri_allowlist': ['package://(\\w+/?)+\\.(dae|stl|urdf|xacro)']
+                    }]
+    )
+
     visual_slam_launch_container = ComposableNodeContainer(
         name='visual_slam_launch_container',
         namespace='',
@@ -91,4 +128,4 @@ def generate_launch_description():
         output='screen'
     )
 
-    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node])
+    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
