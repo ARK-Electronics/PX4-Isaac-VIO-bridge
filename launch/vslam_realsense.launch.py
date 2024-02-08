@@ -34,12 +34,19 @@ def generate_launch_description():
                 'enable_depth': False,
                 'depth_module.emitter_enabled': 0,
                 'depth_module.profile': '640x360x90',
-                'enable_gyro': True,
-                'enable_accel': True,
-                'gyro_fps': 200,
-                'accel_fps': 200,
-                'unite_imu_method': 2
+                # 'enable_gyro': True,
+                # 'enable_accel': True,
+                # 'gyro_fps': 200,
+                # 'accel_fps': 200,
+                # 'unite_imu_method': 2
         }]
+    )
+
+    imu_transform_node = Node(
+        name='imu_transform',
+        namespace='imu_transform',
+        package='imu_transform',
+        executable='imu_transform'
     )
 
     visual_slam_node = ComposableNode(
@@ -70,7 +77,7 @@ def generate_launch_description():
                     ('stereo_camera/left/camera_info', 'camera/infra1/camera_info'),
                     ('stereo_camera/right/image', 'camera/infra2/image_rect_raw'),
                     ('stereo_camera/right/camera_info', 'camera/infra2/camera_info'),
-                    ('visual_slam/imu', 'camera/imu')]
+                    ('visual_slam/imu', 'imu_transform/imu')]
     )
 
     visual_slam_launch_container = ComposableNodeContainer(
@@ -84,4 +91,4 @@ def generate_launch_description():
         output='screen'
     )
 
-    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node])
+    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node])
