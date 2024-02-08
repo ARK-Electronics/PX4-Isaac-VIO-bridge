@@ -21,7 +21,8 @@ from launch_ros.descriptions import ComposableNode
 
 
 def generate_launch_description():
-    """Launch file which brings up visual slam node configured for RealSense."""
+
+    # Realsense node
     realsense_camera_node = Node(
         name='camera',
         namespace='camera',
@@ -58,6 +59,7 @@ def generate_launch_description():
         executable='vio_transform'
     )
 
+    # Isaac ROS VSLAM
     visual_slam_node = ComposableNode(
         name='visual_slam_node',
         package='isaac_ros_visual_slam',
@@ -89,7 +91,6 @@ def generate_launch_description():
                     ('visual_slam/imu', 'imu_transform/imu')]
     )
 
-
     # Foxglove
     foxglove_bridge_node = Node(
         name='foxglove_bridge',
@@ -117,6 +118,7 @@ def generate_launch_description():
                     }]
     )
 
+    # Launch all nodes in the same process
     visual_slam_launch_container = ComposableNodeContainer(
         name='visual_slam_launch_container',
         namespace='',
