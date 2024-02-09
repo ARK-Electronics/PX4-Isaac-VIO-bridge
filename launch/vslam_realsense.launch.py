@@ -31,16 +31,38 @@ def generate_launch_description():
         parameters=[{
                 'enable_infra1': True,
                 'enable_infra2': True,
-                'enable_color': False,
+                'enable_color': True,
+                'rgb_camera.profile': '640x360x30',
                 'enable_depth': False,
                 'depth_module.emitter_enabled': 0,
                 'depth_module.profile': '640x360x90',
-                # 'enable_gyro': True,
-                # 'enable_accel': True,
+                'enable_gyro': False,
+                'enable_accel': False,
                 # 'gyro_fps': 200,
                 # 'accel_fps': 200,
                 # 'unite_imu_method': 2
         }]
+    )
+
+    # Static transform publisher PX4 to ROS2
+    # Apply ROLL_180 for NED to FLU
+    camera_link_gyro_tf_node = Node(
+        name='camera_link_gyro_tf',
+        namespace='camera_link_gyro_tf',
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        # x y z yaw pitch roll frame_id child_frame_id
+        arguments = ['0', '0', '0', '0', '0', '3.14159265359', 'camera_link', 'camera_gyro_frame']
+    )
+
+    # Static transform publisher ROS2 to RS Optical
+    # https://github.com/IntelRealSense/realsense-ros?tab=readme-ov-file#ros2robot-vs-opticalcamera-coordination-systems
+    gyro_optical_tf_node = Node(
+        name='gyro_optical_tf',
+        namespace='gyro_optical_tf',
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments = ['0', '0', '0', '-0.5', '0.5', '-0.5', '0.5', 'camera_gyro_frame', 'camera_gyro_optical_frame']
     )
 
     # Converts PX4 IMU topic to VIO IMU input
@@ -129,5 +151,5 @@ def generate_launch_description():
         ],
         output='screen'
     )
-
-    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
+    # return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
+    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, camera_link_gyro_tf_node, gyro_optical_tf_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
