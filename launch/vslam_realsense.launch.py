@@ -65,14 +65,6 @@ def generate_launch_description():
         arguments = ['0', '0', '0', '-0.5', '0.5', '-0.5', '0.5', 'camera_gyro_frame', 'camera_gyro_optical_frame']
     )
 
-    # Converts PX4 IMU topic to VIO IMU input
-    imu_transform_node = Node(
-        name='imu_transform',
-        namespace='imu_transform',
-        package='imu_transform',
-        executable='imu_transform'
-    )
-
     # Converts VIO solution to PX4 topic
     vio_transform_node = Node(
         name='vio_transform',
@@ -110,7 +102,7 @@ def generate_launch_description():
                     ('stereo_camera/left/camera_info', 'camera/infra1/camera_info'),
                     ('stereo_camera/right/image', 'camera/infra2/image_rect_raw'),
                     ('stereo_camera/right/camera_info', 'camera/infra2/camera_info'),
-                    ('visual_slam/imu', 'imu_transform/imu')]
+                    ('visual_slam/imu', 'vio_transform/imu')]
     )
 
     # Foxglove
@@ -152,4 +144,4 @@ def generate_launch_description():
         output='screen'
     )
     # return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
-    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, camera_link_gyro_tf_node, gyro_optical_tf_node, imu_transform_node, vio_transform_node, foxglove_bridge_node])
+    return launch.LaunchDescription([visual_slam_launch_container, realsense_camera_node, camera_link_gyro_tf_node, gyro_optical_tf_node, vio_transform_node, foxglove_bridge_node])

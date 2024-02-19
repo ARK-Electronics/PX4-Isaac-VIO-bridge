@@ -2,7 +2,9 @@
 #include "tf2/LinearMath/Matrix3x3.h"
 #include "tf2/LinearMath/Transform.h"
 #include <px4_msgs/msg/vehicle_odometry.hpp>
+#include <px4_msgs/msg/sensor_combined.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <sensor_msgs/msg/imu.hpp>
 #include "isaac_ros_visual_slam_interfaces/msg/visual_slam_status.hpp"
 
 class VioTransform : public rclcpp::Node
@@ -10,33 +12,73 @@ class VioTransform : public rclcpp::Node
 public:
 explicit VioTransform() : Node("vio_transform")
 {
-	_vio_pub = this->create_publisher<px4_msgs::msg::VehicleOdometry>("/fmu/in/vehicle_visual_odometry", 10);
-
 	// QoS profile, PX4 specific
 	rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 	auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
+	// PX4 formatted VIO publisher
+	_vio_pub = this->create_publisher<px4_msgs::msg::VehicleOdometry>("/fmu/in/vehicle_visual_odometry", 10);
+
+	// ROS2 formatted IMU publisher
+	_imu_pub = this->create_publisher<sensor_msgs::msg::Imu>("/vio_transform/imu", 10);
+
+	// Isaac ROS VSLAM subscriptions
 	_vslam_odom_sub = this->create_subscription<nav_msgs::msg::Odometry>("/visual_slam/tracking/odometry", qos,
 						std::bind(&VioTransform::odometryCallback, this, std::placeholders::_1));
 
 	_vslam_status_sub = this->create_subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>("/visual_slam/status", qos,
 						std::bind(&VioTransform::statusCallback, this, std::placeholders::_1));
+
+	// FC IMU subscription
+	_fc_imu_sub = this->create_subscription<px4_msgs::msg::SensorCombined>("/fmu/out/sensor_combined", qos,
+						std::bind(&VioTransform::sensorCombinedCallback, this, std::placeholders::_1));
 }
 
 private:
 	// Subscription callbacks
 	void odometryCallback(const nav_msgs::msg::Odometry::UniquePtr msg);
 	void statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg);
+	void sensorCombinedCallback(const px4_msgs::msg::SensorCombined::UniquePtr msg);
 
 	// Publishers
 	rclcpp::Publisher<px4_msgs::msg::VehicleOdometry>::SharedPtr _vio_pub;
+	rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr _imu_pub;
 
 	// Subscribers
 	rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr _vslam_odom_sub;
 	rclcpp::Subscription<isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus>::SharedPtr _vslam_status_sub;
-
+	rclcpp::Subscription<px4_msgs::msg::SensorCombined>::SharedPtr _fc_imu_sub;
 	uint8_t _vslam_state = 0;
 };
+
+void VioTransform::sensorCombinedCallback(const px4_msgs::msg::SensorCombined::UniquePtr msg)
+{
+	auto fc_imu_acc = tf2::Vector3();
+	fc_imu_acc.setX(msg->accelerometer_m_s2[0]);
+	fc_imu_acc.setY(msg->accelerometer_m_s2[1]);
+	fc_imu_acc.setZ(msg->accelerometer_m_s2[2]);
+
+	auto fc_imu_gyro = tf2::Vector3();
+	fc_imu_gyro.setX(msg->gyro_rad[0]);
+	fc_imu_gyro.setY(msg->gyro_rad[1]);
+	fc_imu_gyro.setZ(msg->gyro_rad[2]);
+
+	auto accel = fc_imu_acc;
+	auto gyro = fc_imu_gyro;
+
+	auto imu_msg = sensor_msgs::msg::Imu();
+	imu_msg.header.stamp = get_clock()->now();
+	imu_msg.linear_acceleration.x = accel[0];
+	imu_msg.linear_acceleration.y = accel[1];
+	imu_msg.linear_acceleration.z = accel[2];
+	imu_msg.angular_velocity.x = gyro[0];
+	imu_msg.angular_velocity.y = gyro[1];
+	imu_msg.angular_velocity.z = gyro[2];
+	imu_msg.orientation_covariance = {-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+	imu_msg.linear_acceleration_covariance = {0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01};
+	imu_msg.angular_velocity_covariance = {0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01};
+	_imu_pub->publish(imu_msg);
+}
 
 void VioTransform::statusCallback(const isaac_ros_visual_slam_interfaces::msg::VisualSlamStatus::UniquePtr msg)
 {
